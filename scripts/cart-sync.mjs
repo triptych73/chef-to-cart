@@ -99,15 +99,32 @@ async function run() {
                     }
                 }
 
-                // STABLE SELECTORS (from user DOM inspection)
-                const plusButtonSelector = '[data-test="counter:increment"]';
-                const addButtonSelector = '[data-test="add-button"]';
+                // ROBUST SELECTORS (based on user inspection)
+                const plusSelectors = [
+                    '[data-test="counter:increment"]',
+                    'button:has(svg[data-test="icon__plus"])',
+                    'button[aria-label^="Increase quantity"]'
+                ];
+                const addSelectors = [
+                    'button[data-test="counter-button"]:has-text("Add")',
+                    'button[data-synthetics="add-button"]:has-text("Add")',
+                    'button:has-text("Add")'
+                ];
                 const qtyInputSelector = 'input[data-test="quantity-in-basket"]';
 
-                await page.waitForTimeout(500); // Small wait for hydration
+                await page.waitForTimeout(800); // Wait for hydration
 
-                const plusButton = await page.$(plusButtonSelector);
-                const addButton = await page.$(addButtonSelector);
+                // Helper to find the first matching selector
+                const findButton = async (selectors) => {
+                    for (const sel of selectors) {
+                        const btn = await page.$(sel);
+                        if (btn) return { btn, selector: sel };
+                    }
+                    return null;
+                };
+
+                const plusMatch = await findButton(plusSelectors);
+                const addMatch = await findButton(addSelectors);
                 const suggestedQty = item.suggestedCartQuantity || item.cart_quantity || 1;
 
                 // Read current basket quantity (0 if not in trolley)
@@ -122,30 +139,29 @@ async function run() {
                 // Calculate how many clicks we need
                 const clicksNeeded = addMode ? suggestedQty : (suggestedQty - currentQty);
 
-                if (plusButton) {
-                    // Item already in trolley — just click + the right number of times
-                    console.log(`   📊 In trolley: ${currentQty} | Need: ${suggestedQty} | Adding: ${clicksNeeded} more`);
+                if (plusMatch) {
+                    console.log(`   📊 In trolley: ${currentQty} | Need: ${suggestedQty} | Adding: ${clicksNeeded} more (via ${plusMatch.selector})`);
                     for (let i = 0; i < clicksNeeded; i++) {
-                        await plusButton.click();
-                        await page.waitForTimeout(400);
+                        await plusMatch.btn.click();
+                        await page.waitForTimeout(600);
                     }
-                } else if (addButton) {
-                    // Not in trolley — click Add first, then + for any remaining
-                    console.log(`   ✨ Not in trolley. Adding ${suggestedQty}...`);
-                    await addButton.click();
-                    await page.waitForTimeout(1000);
+                } else if (addMatch) {
+                    console.log(`   ✨ Not in trolley. Adding ${suggestedQty} (via ${addMatch.selector})...`);
+                    await addMatch.btn.click();
+                    await page.waitForTimeout(1500);
 
                     if (suggestedQty > 1) {
-                        const newPlus = await page.waitForSelector(plusButtonSelector, { timeout: 3000 }).catch(() => null);
-                        if (newPlus) {
+                        // Re-find the plus button after the 'Add' click
+                        const newPlusMatch = await findButton(plusSelectors);
+                        if (newPlusMatch) {
                             for (let i = 0; i < suggestedQty - 1; i++) {
-                                await newPlus.click();
-                                await page.waitForTimeout(400);
+                                await newPlusMatch.btn.click();
+                                await page.waitForTimeout(600);
                             }
                         }
                     }
                 } else {
-                    console.warn(`   ⚠️ Could not find Add/+ buttons. Selector issue or out of stock?`);
+                    console.warn(`   ⚠️ Could not find Add/+ buttons. Selectors tried: ${[...addSelectors, ...plusSelectors].join(', ')}`);
                 }
 
             } catch (err) {
