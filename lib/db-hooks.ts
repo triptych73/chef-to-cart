@@ -24,18 +24,10 @@ export function useRecipes(includeGlobal: boolean = false) {
             return;
         }
 
-        console.log(`📡 Firestore: Subscription active for ownerId: ${user.uid} (Global: ${includeGlobal})`);
+        console.log(`📡 Firestore: Subscription active for recipes (Global: true)`);
 
-        let q;
-        if (includeGlobal) {
-            // Fetch all recipes for debugging orphaned data
-            q = query(collection(db, "recipes"));
-        } else {
-            q = query(
-                collection(db, "recipes"),
-                where("ownerId", "==", user.uid)
-            );
-        }
+        // Fetch all recipes for shared family access
+        const q = query(collection(db, "recipes"));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const recipeData = snapshot.docs.map(doc => ({
@@ -58,7 +50,7 @@ export function useRecipes(includeGlobal: boolean = false) {
         console.log("💾 Persistence: Creating new recipe...", recipe.title);
         const docRef = await addDoc(collection(db, "recipes"), {
             ...recipe,
-            ownerId: user.uid,
+            ownerId: user.uid, // Keep for audit/author tracking
             createdAt: serverTimestamp()
         });
         console.log("✅ Persistence: Recipe created with ID:", docRef.id);
@@ -94,7 +86,7 @@ export function useMealPlan(weekStartDate: string) {
             return;
         }
 
-        const planId = `${user.uid}_${weekStartDate}`;
+        const planId = `family_shared_${weekStartDate}`;
         const docRef = doc(db, "meal_plans", planId);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -115,11 +107,11 @@ export function useMealPlan(weekStartDate: string) {
     const updatePlan = async (days: MealPlan["days"]) => {
         if (!user) throw new Error("Not authenticated");
 
-        const planId = `${user.uid}_${weekStartDate}`;
+        const planId = `family_shared_${weekStartDate}`;
         const docRef = doc(db, "meal_plans", planId);
 
         return setDoc(docRef, {
-            userId: user.uid,
+            familyId: "shared",
             weekStartDate,
             days,
             updatedAt: serverTimestamp()

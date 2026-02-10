@@ -6,43 +6,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if user owns the document // checking against userId field
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Users Collection
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-    }
+    // Shared Shared Shared rules for a small personal app (Husband & Wife)
+    // There is no private data here, so we allow global read/write for anyone signed in.
 
     // Recipes Collection
     match /recipes/{recipeId} {
-      // Allow read for everyone (public recipes) or if owner
-      allow read: if isAuthenticated(); 
-      // Allow create if authenticated
-      allow create: if isAuthenticated();
-      // Allow update if owner OR if user is claiming the recipe (setting ownerId to themselves)
-      allow update: if isAuthenticated() && (
-        resource.data.ownerId == request.auth.uid || 
-        (request.resource.data.ownerId == request.auth.uid)
-      );
-      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow read, write: if isAuthenticated();
     }
 
     // Meal Plans Collection
     match /meal_plans/{planId} {
-      // Allow read if authenticated and (doc doesn't exist OR user is owner)
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
-      // Allow create if data matches auth
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      // Allow update/delete if doc exists and user is owner
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read, write: if isAuthenticated();
     }
 
-    // Pantry Collection (Subcollection or Root? Design said root /pantry/{userId})
-    match /pantry/{userId} {
-       allow read, write: if isOwner(userId);
+    // Pantry Collection
+    match /pantry/{pantryId} {
+       allow read, write: if isAuthenticated();
     }
   }
 }
