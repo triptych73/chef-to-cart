@@ -40,7 +40,7 @@ chmod +x ~/.vnc/xstartup
 # 4. Create Systemd Service for VNC
 echo "🖥️ Creating Systemd service for VNC (Display :1)..."
 USER_NAME=$(whoami)
-sudo cat <<EOF > /etc/systemd/system/vncserver@.service
+sudo cat <<EOF | sudo tee /etc/systemd/system/vncserver@.service > /dev/null
 [Unit]
 Description=Start TigerVNC server at startup
 After=syslog.target network.target
@@ -62,7 +62,7 @@ EOF
 
 # 5. Create Systemd Service for noVNC (Proxy VNC to Web)
 echo "🌐 Creating Systemd service for noVNC (Port 6080)..."
-sudo cat <<EOF > /etc/systemd/system/novnc.service
+sudo cat <<EOF | sudo tee /etc/systemd/system/novnc.service > /dev/null
 [Unit]
 Description=noVNC Web Proxy
 After=vncserver@1.service
