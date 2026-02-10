@@ -50,10 +50,10 @@ After=syslog.target network.target
 Type=forking
 User=$USER_NAME
 Group=$USER_NAME
-WorkingDirectory=/home/$USER_NAME
-Environment=HOME=/home/$USER_NAME
+WorkingDirectory=%h
+Environment=HOME=%h
 
-ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
+ExecStartPre=-/usr/bin/vncserver -kill :%i
 ExecStart=/usr/bin/vncserver -depth 24 -geometry 1280x800 -localhost no :%i
 ExecStop=/usr/bin/vncserver -kill :%i
 
