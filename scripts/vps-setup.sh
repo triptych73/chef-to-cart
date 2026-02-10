@@ -47,17 +47,15 @@ Description=Start TigerVNC server at startup
 After=syslog.target network.target
 
 [Service]
-Type=simple
+Type=forking
 User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=/home/$USER_NAME
 Environment=HOME=/home/$USER_NAME
 
-ExecStartPre=-/usr/bin/vncserver -kill :%i
-ExecStart=/usr/bin/vncserver -fg -depth 24 -geometry 1280x800 -localhost no -SecurityTypes VncAuth :%i
+ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
+ExecStart=/usr/bin/vncserver -depth 24 -geometry 1280x800 -localhost no :%i
 ExecStop=/usr/bin/vncserver -kill :%i
-Restart=on-failure
-RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
@@ -99,8 +97,7 @@ Terminal=false
 Categories=Network;WebBrowser;
 EOF
 chmod +x ~/Desktop/Google-Chrome.desktop
-# Tell XFCE to trust the launcher (Debian 12 specific)
-gio set ~/Desktop/Google-Chrome.desktop metadata::xfce-exe-checksum "$(sha256sum ~/Desktop/Google-Chrome.desktop | cut -d' ' -f1)"
+# Skip gio dependency to avoid setup failures
 
 echo "----------------------------------------------------------------"
 echo "✅ SETUP COMPLETE!"
