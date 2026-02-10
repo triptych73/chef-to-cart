@@ -341,9 +341,9 @@ export default function PlannerGrid() {
                                                     layoutId={`grid-${day}-${meal}-${planner[day][meal].recipe!.id}`}
                                                 />
 
-                                                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900/80 backdrop-blur-sm text-white text-[10px] rounded-md font-medium">
-                                                        <Users size={8} />
+                                                <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                    <div className="flex items-center gap-1 px-1 py-0.5 bg-zinc-900/90 backdrop-blur-sm text-white text-[8px] rounded-md font-bold shadow-sm">
+                                                        <Users size={7} />
                                                         {planner[day][meal].servings || planner[day][meal].recipe!.servings}
                                                     </div>
 
@@ -353,9 +353,9 @@ export default function PlannerGrid() {
                                                             const s = prompt("Number of servings?", (planner[day][meal].servings || planner[day][meal].recipe!.servings || 2).toString());
                                                             if (s) handleUpdateServings(day, meal, parseInt(s));
                                                         }}
-                                                        className="bg-zinc-900/80 backdrop-blur-sm text-white rounded-md p-1 hover:bg-zinc-800"
+                                                        className="bg-zinc-800/90 backdrop-blur-sm text-white rounded-md p-0.5 hover:bg-zinc-900 shadow-sm"
                                                     >
-                                                        <MoreVertical className="w-3 h-3" />
+                                                        <MoreVertical className="w-2.5 h-2.5" />
                                                     </button>
 
                                                     <button
@@ -363,9 +363,9 @@ export default function PlannerGrid() {
                                                             e.stopPropagation();
                                                             handleRemoveFromPlan(day, meal);
                                                         }}
-                                                        className="bg-red-500/80 backdrop-blur-sm text-white rounded-md p-1 hover:bg-red-600"
+                                                        className="bg-red-500/90 backdrop-blur-sm text-white rounded-md p-0.5 hover:bg-red-600 shadow-sm"
                                                     >
-                                                        <Plus className="w-3 h-3 rotate-45" />
+                                                        <Plus className="w-2.5 h-2.5 rotate-45" />
                                                     </button>
                                                 </div>
                                             </motion.div>

@@ -63,22 +63,24 @@ export default function DraggableRecipe({ recipe, onDragStart, onDragEnd, onUpda
             {/* Decorative color strip */}
             <div className={cn("absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl", recipe.color || "bg-zinc-200")} />
 
-            <div className="flex items-center gap-3 pl-2">
-                <div className="p-2 bg-zinc-50 rounded-lg text-zinc-400 group-hover:text-zinc-600 transition-colors">
-                    <GripVertical size={16} />
+            <div className="flex items-start gap-2 pl-1">
+                <div className="pt-1.5 text-zinc-300 group-hover:text-zinc-400 transition-colors shrink-0">
+                    <GripVertical size={14} />
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm text-zinc-900 truncate">{recipe.title}</h4>
-                    <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                    <h4 className="font-medium text-[13px] text-zinc-900 line-clamp-2 leading-tight">
+                        {recipe.title}
+                    </h4>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                         {recipe.prepTime && (
-                            <span className="flex items-center gap-1">
-                                <Clock size={10} /> {recipe.prepTime}m
+                            <span className="flex items-center gap-1 whitespace-nowrap">
+                                <Clock size={9} /> {recipe.prepTime}m
                             </span>
                         )}
                         {recipe.servings && (
-                            <span className="flex items-center gap-1">
-                                <Users size={10} /> {recipe.servings}
+                            <span className="flex items-center gap-1 whitespace-nowrap">
+                                <Users size={9} /> serves {recipe.servings}
                             </span>
                         )}
                     </div>
