@@ -11,7 +11,7 @@ echo "🚀 Starting Ocado Automation VPS Setup..."
 # 1. Update & Install Desktop Environment (XFCE4 is lightweight)
 echo "📦 Installing XFCE4 and TigerVNC..."
 sudo apt-get update
-sudo apt-get install -y xfce4 xfce4-goodies tigervnc-standalone-server novnc websockify curl wget python3-pip dbus-x11
+sudo apt-get install -y xfce4 xfce4-goodies tigervnc-standalone-server novnc websockify curl wget python3-pip dbus-x11 libglib2.0-bin
 sudo pip3 install --break-system-packages google-genai
 
 # 2. Install Google Chrome
@@ -34,7 +34,7 @@ unset DBUS_SESSION_BUS_ADDRESS
 [ -x /etc/vnc/xstartup ] && exec /etc/vnc/xstartup
 [ -r \$HOME/.Xresources ] && xrdb \$HOME/.Xresources
 vncconfig -iconic &
-startxfce4
+exec dbus-launch startxfce4
 EOF
 chmod +x ~/.vnc/xstartup
 
@@ -47,14 +47,14 @@ Description=Start TigerVNC server at startup
 After=syslog.target network.target
 
 [Service]
-Type=forking
+Type=simple
 User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=/home/$USER_NAME
 Environment=HOME=/home/$USER_NAME
 
 ExecStartPre=-/usr/bin/vncserver -kill :%i
-ExecStart=/usr/bin/vncserver -depth 24 -geometry 1280x800 -localhost no :%i
+ExecStart=/usr/bin/vncserver -fg -depth 24 -geometry 1280x800 -localhost no -SecurityTypes VncAuth :%i
 ExecStop=/usr/bin/vncserver -kill :%i
 Restart=on-failure
 RestartSec=5
