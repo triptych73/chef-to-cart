@@ -25,13 +25,18 @@ export async function POST(request: NextRequest) {
             const scriptPath = join(process.cwd(), "lib", "ai", "cart_matcher_agent.py");
             const catalogPath = join(process.cwd(), "lib", "data", "ocado-catalog.json");
 
-            const { stdout, stderr } = await execAsync(`python "${scriptPath}" "${tempFilePath}" "${catalogPath}"`, {
+            console.log("🚀 Executing AI Matcher...");
+            console.log(`📡 API Key Present: ${!!process.env.GOOGLE_API_KEY}`);
+
+            const { stdout, stderr } = await execAsync(`python3 "${scriptPath}" "${tempFilePath}" "${catalogPath}"`, {
                 env: { ...process.env },
             });
 
             if (stderr) {
                 console.warn("Python Matcher Stderr:", stderr);
             }
+
+            console.log("📝 Python Matcher Stdout:", stdout);
 
             const result = JSON.parse(stdout);
 
@@ -43,7 +48,10 @@ export async function POST(request: NextRequest) {
 
         } catch (execError: any) {
             console.error("Cart Matcher execution error:", execError);
-            return NextResponse.json({ error: "Failed to match items: " + (execError.message || "Unknown error") }, { status: 500 });
+            return NextResponse.json({
+                error: (execError.message || "Unknown error"),
+                stderr: execError.stderr || null
+            }, { status: 500 });
         } finally {
             // Cleanup temp file
             try {

@@ -240,11 +240,7 @@ export default function ShopPage() {
                         </div>
                         {!showRemote ? (
                             <button
-                                onClick={() => {
-                                    const pw = prompt("Enter Remote Access Password:");
-                                    if (pw === "ocado") setShowRemote(true); // Default placeholder password
-                                    else if (pw) alert("Incorrect password.");
-                                }}
+                                onClick={() => setShowRemote(true)}
                                 className="px-6 py-2 bg-zinc-900 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-md"
                             >
                                 Unlock Session

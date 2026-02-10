@@ -11,7 +11,8 @@ echo "🚀 Starting Ocado Automation VPS Setup..."
 # 1. Update & Install Desktop Environment (XFCE4 is lightweight)
 echo "📦 Installing XFCE4 and TigerVNC..."
 sudo apt-get update
-sudo apt-get install -y xfce4 xfce4-goodies tigervnc-standalone-server novnc websockify curl wget
+sudo apt-get install -y xfce4 xfce4-goodies tigervnc-standalone-server novnc websockify curl wget python3-pip dbus-x11
+sudo pip3 install --break-system-packages google-genai
 
 # 2. Install Google Chrome
 if ! command -v google-chrome &> /dev/null; then
@@ -33,7 +34,7 @@ unset DBUS_SESSION_BUS_ADDRESS
 [ -x /etc/vnc/xstartup ] && exec /etc/vnc/xstartup
 [ -r \$HOME/.Xresources ] && xrdb \$HOME/.Xresources
 vncconfig -iconic &
-startxfce4 &
+startxfce4
 EOF
 chmod +x ~/.vnc/xstartup
 
@@ -50,11 +51,13 @@ Type=forking
 User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=/home/$USER_NAME
+Environment=HOME=/home/$USER_NAME
 
-PIDFile=/home/$USER_NAME/.vnc/%H:%i.pid
-ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
+ExecStartPre=-/usr/bin/vncserver -kill :%i
 ExecStart=/usr/bin/vncserver -depth 24 -geometry 1280x800 -localhost no :%i
 ExecStop=/usr/bin/vncserver -kill :%i
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
@@ -71,7 +74,8 @@ After=vncserver@1.service
 Type=simple
 User=$USER_NAME
 ExecStart=/usr/bin/websockify --web /usr/share/novnc/ 6080 localhost:5901
-Restart=on-failure
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
