@@ -22,6 +22,8 @@ export default function ShopPage() {
     const [isMatching, setIsMatching] = useState(false);
     const [matchingError, setMatchingError] = useState<string | null>(null);
     const [showRemote, setShowRemote] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
     const loading = recipesLoading || planLoading;
 
@@ -65,6 +67,28 @@ export default function ShopPage() {
     }, [plan, recipes]);
 
     const shoppingList = useMemo(() => generateShoppingList(plannerState), [plannerState]);
+
+    const handleSyncToVPS = async () => {
+        setIsSyncing(true);
+        setSyncStatus(null);
+        try {
+            const response = await fetch("/api/cart-sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ matches })
+            });
+
+            if (!response.ok) throw new Error("Sync failed");
+
+            const data = await response.json();
+            setSyncStatus("🚀 Action triggered! Watch the VNC window below.");
+            setTimeout(() => setShowAutomationPreview(false), 3000);
+        } catch (err) {
+            setSyncStatus("❌ Error starting sync");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const handleCopy = () => {
         const text = generateOcadoSearchString(shoppingList);
@@ -369,6 +393,14 @@ export default function ShopPage() {
                                                 Found {matches.filter(m => m.confidence !== "none").length} matches. Run <code className="bg-blue-100 px-1 rounded font-bold">npm run cart:sync</code> to add them.
                                             </p>
                                         </div>
+                                        {syncStatus && (
+                                            <div className={cn(
+                                                "p-3 rounded-xl text-[10px] font-bold text-center",
+                                                syncStatus.includes("🚀") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                            )}>
+                                                {syncStatus}
+                                            </div>
+                                        )}
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={() => setShowAutomationPreview(false)}
@@ -379,10 +411,17 @@ export default function ShopPage() {
                                             <button
                                                 onClick={handleDownloadJob}
                                                 disabled={matches.filter(m => m.confidence !== "none").length === 0}
-                                                className="flex-3 px-8 py-3 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="flex-1 px-6 py-3 border border-zinc-200 rounded-full text-sm font-medium hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
-                                                <ChevronRight size={16} />
-                                                Download Sync Job
+                                                Download Job
+                                            </button>
+                                            <button
+                                                onClick={handleSyncToVPS}
+                                                disabled={isSyncing || matches.filter(m => m.confidence !== "none").length === 0}
+                                                className="flex-[2] px-8 py-3 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag size={16} />}
+                                                Push to VPS Cart
                                             </button>
                                         </div>
                                     </>

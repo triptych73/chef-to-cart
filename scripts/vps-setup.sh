@@ -84,6 +84,24 @@ EOF
 echo "✨ Reloading systemd..."
 sudo systemctl daemon-reload
 
+# 6. Add Chrome shortcut to desktop for ease of use
+echo "📁 Creating desktop shortcut for Chrome (Automation Ready)..."
+mkdir -p ~/Desktop
+cat <<EOF > ~/Desktop/Google-Chrome.desktop
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Chrome (Sync Ready)
+Comment=Access Ocado and enable Automation
+Exec=/usr/bin/google-chrome-stable --remote-debugging-port=9222 --no-sandbox --user-data-dir=$HOME/.chrome-sync %U
+Icon=google-chrome
+Terminal=false
+Categories=Network;WebBrowser;
+EOF
+chmod +x ~/Desktop/Google-Chrome.desktop
+# Tell XFCE to trust the launcher (Debian 12 specific)
+gio set ~/Desktop/Google-Chrome.desktop metadata::xfce-exe-checksum "$(sha256sum ~/Desktop/Google-Chrome.desktop | cut -d' ' -f1)"
+
 echo "----------------------------------------------------------------"
 echo "✅ SETUP COMPLETE!"
 echo "----------------------------------------------------------------"
