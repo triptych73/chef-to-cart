@@ -1,0 +1,8 @@
+# .dockerignore
+node_modules
+.next
+.git
+.env*.local
+*.log
+cart_job.json
+tmp
