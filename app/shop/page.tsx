@@ -24,6 +24,7 @@ export default function ShopPage() {
     const [showRemote, setShowRemote] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState<string | null>(null);
+    const [lastMatchedListJson, setLastMatchedListJson] = useState<string | null>(null);
 
     const loading = recipesLoading || planLoading;
 
@@ -67,6 +68,7 @@ export default function ShopPage() {
     }, [plan, recipes]);
 
     const shoppingList = useMemo(() => generateShoppingList(plannerState), [plannerState]);
+    const shoppingListJson = JSON.stringify(shoppingList);
 
     const handleSyncToVPS = async () => {
         setIsSyncing(true);
@@ -104,7 +106,14 @@ export default function ShopPage() {
         setCheckedItems(newChecked);
     };
 
-    const handleAutomate = async () => {
+    const handleAutomate = async (force: boolean | React.MouseEvent = false) => {
+        const isForce = force === true;
+        // If not forced and we have a cached match for the same list, just open preview
+        if (!isForce && shoppingListJson === lastMatchedListJson && matches.length > 0) {
+            setShowAutomationPreview(true);
+            return;
+        }
+
         setIsMatching(true);
         setMatchingError(null);
         setShowAutomationPreview(true);
@@ -120,11 +129,23 @@ export default function ShopPage() {
 
             const data = await response.json();
             setMatches(data.matches || []);
+            setLastMatchedListJson(shoppingListJson);
         } catch (err) {
             setMatchingError(err instanceof Error ? err.message : "AI matching failed");
         } finally {
             setIsMatching(false);
         }
+    };
+
+    const handleUpdateQty = (idx: number, delta: number) => {
+        setMatches(prev => prev.map((m, i) => {
+            if (i !== idx) return m;
+            return { ...m, cart_quantity: Math.max(0, m.cart_quantity + delta) };
+        }));
+    };
+
+    const handleRemoveMatch = (idx: number) => {
+        setMatches(prev => prev.filter((_, i) => i !== idx));
     };
 
     const handleDownloadJob = () => {
@@ -313,68 +334,96 @@ export default function ShopPage() {
                                     <h2 className="text-xl font-serif font-bold">Automation Preview</h2>
                                     <p className="text-xs text-zinc-500">Matching your list to your Ocado catalog.</p>
                                 </div>
-                                <button
-                                    onClick={() => setShowAutomationPreview(false)}
-                                    className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400"
-                                >
-                                    <Trash2 size={20} className="rotate-45" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {!isMatching && !matchingError && (
+                                        <button
+                                            onClick={(e) => handleAutomate(true)}
+                                            className="px-4 py-1.5 bg-zinc-200 text-zinc-700 rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-300 transition-all flex items-center gap-2"
+                                        >
+                                            <Loader2 size={12} className={isMatching ? "animate-spin" : ""} />
+                                            Re-Match
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setShowAutomationPreview(false)}
+                                        className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400"
+                                    >
+                                        <Trash2 size={20} className="rotate-45" />
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6">
+                            <div className="flex-1 overflow-y-auto p-6 bg-zinc-50/30">
                                 {isMatching ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                                         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-                                        <p className="text-zinc-500 font-medium">Gemini is matching your list...</p>
+                                        <p className="text-zinc-500 font-medium text-center">
+                                            Gemini is matching your list...<br />
+                                            <span className="text-[10px] text-zinc-400 italic font-normal">Comparing against {shoppingList.length} items</span>
+                                        </p>
                                     </div>
                                 ) : matchingError ? (
                                     <div className="flex flex-col items-center justify-center py-20 gap-4 text-red-500">
                                         <AlertCircle className="w-10 h-10" />
                                         <p className="font-medium text-center">{matchingError}</p>
-                                        <button onClick={handleAutomate} className="text-sm underline">Try again</button>
+                                        <button onClick={() => handleAutomate(true)} className="text-sm underline">Try again</button>
                                     </div>
                                 ) : (
                                     <div className="space-y-6">
+                                        {matches.length === 0 && (
+                                            <div className="py-20 text-center text-zinc-400 italic text-sm">
+                                                No matches found. Try refreshing or checkout manually.
+                                            </div>
+                                        )}
+
                                         <div className="space-y-3">
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">✅ Ready to Add</h3>
                                             <div className="space-y-2">
-                                                {matches.filter(m => m.confidence !== "none").map((m, idx) => (
-                                                    <div key={idx} className="flex items-center justify-between p-4 rounded-2xl border border-zinc-100 bg-white shadow-sm">
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-bold text-zinc-900">{m.ingredient}</p>
-                                                            <div className="flex items-center gap-2 mt-1">
+                                                {matches.map((m, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-4 rounded-2xl border border-zinc-100 bg-white shadow-sm group">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-bold text-zinc-900 truncate">{m.ingredient}</p>
                                                                 <span className={cn(
-                                                                    "text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tighter",
-                                                                    m.confidence === "high" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                                                                    "text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tighter shrink-0",
+                                                                    m.confidence === "high" ? "bg-green-100 text-green-700" :
+                                                                        m.confidence === "medium" ? "bg-blue-100 text-blue-700" :
+                                                                            "bg-zinc-100 text-zinc-500"
                                                                 )}>
-                                                                    {m.confidence} Match
+                                                                    {m.confidence === "none" ? "Search" : m.confidence}
                                                                 </span>
-                                                                <span className="text-[10px] text-zinc-500 truncate max-w-[200px]">{m.matched_product_name}</span>
                                                             </div>
-                                                            {m.reasoning && <p className="text-[9px] text-zinc-400 mt-1 italic leading-tight">{m.reasoning}</p>}
+                                                            <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                                                                <span className="text-[10px] text-zinc-500 truncate italic">
+                                                                    {m.matched_product_name || `Searching for "${m.ingredient}"...`}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-right ml-4 px-3 py-1 bg-zinc-50 rounded-lg border border-zinc-100">
-                                                            <span className="text-xs font-black text-zinc-900">
-                                                                {m.cart_quantity} {m.cart_quantity === 1 ? 'Pack' : 'Packs'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
 
-                                        <div className="space-y-3">
-                                            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">🔍 Search Fallback</h3>
-                                            <p className="text-[10px] text-zinc-400 italic">Not in your catalog. The script will search Ocado and pick the best match automatically.</p>
-                                            <div className="space-y-2">
-                                                {matches.filter(m => m.confidence === "none").map((m, idx) => (
-                                                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50">
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-medium text-zinc-600">{m.ingredient}</p>
-                                                            <p className="text-[9px] text-zinc-400 mt-1">Will search Ocado for "{m.ingredient}"</p>
-                                                        </div>
-                                                        <div className="text-right ml-4 px-3 py-1 border border-dashed border-zinc-200 rounded-lg">
-                                                            <span className="text-xs font-bold text-zinc-400">? Pack</span>
+                                                        <div className="flex items-center gap-3 ml-4">
+                                                            <div className="flex items-center bg-zinc-100 rounded-full p-1 border border-zinc-200">
+                                                                <button
+                                                                    onClick={() => handleUpdateQty(idx, -1)}
+                                                                    className="w-6 h-6 flex items-center justify-center text-zinc-500 hover:text-zinc-900 transition-colors"
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="w-8 text-center text-[11px] font-black text-zinc-900">
+                                                                    {m.cart_quantity}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => handleUpdateQty(idx, 1)}
+                                                                    className="w-6 h-6 flex items-center justify-center text-zinc-500 hover:text-zinc-900 transition-colors"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => handleRemoveMatch(idx)}
+                                                                className="p-2 text-zinc-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -387,12 +436,14 @@ export default function ShopPage() {
                             <div className="p-6 border-t bg-zinc-50 space-y-4">
                                 {!isMatching && !matchingError && (
                                     <>
-                                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex gap-3 italic">
-                                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shrink-0 font-bold">!</div>
-                                            <p className="text-[10px] text-blue-800">
-                                                Found {matches.filter(m => m.confidence !== "none").length} matches. Run <code className="bg-blue-100 px-1 rounded font-bold">npm run cart:sync</code> to add them.
-                                            </p>
-                                        </div>
+                                        {matches.length > 0 && (
+                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex gap-3 italic">
+                                                <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shrink-0 font-bold">!</div>
+                                                <p className="text-[10px] text-blue-800">
+                                                    Found {matches.filter(m => m.confidence !== "none").length} confident matches. Manual edits will be preserved for this sync.
+                                                </p>
+                                            </div>
+                                        )}
                                         {syncStatus && (
                                             <div className={cn(
                                                 "p-3 rounded-xl text-[10px] font-bold text-center",
@@ -406,18 +457,18 @@ export default function ShopPage() {
                                                 onClick={() => setShowAutomationPreview(false)}
                                                 className="flex-1 px-6 py-3 border border-zinc-200 rounded-full text-sm font-medium hover:bg-zinc-100 transition-all"
                                             >
-                                                Cancel
+                                                Close
                                             </button>
                                             <button
                                                 onClick={handleDownloadJob}
-                                                disabled={matches.filter(m => m.confidence !== "none").length === 0}
+                                                disabled={matches.length === 0}
                                                 className="flex-1 px-6 py-3 border border-zinc-200 rounded-full text-sm font-medium hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
-                                                Download Job
+                                                Download
                                             </button>
                                             <button
                                                 onClick={handleSyncToVPS}
-                                                disabled={isSyncing || matches.filter(m => m.confidence !== "none").length === 0}
+                                                disabled={isSyncing || matches.length === 0}
                                                 className="flex-[2] px-8 py-3 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag size={16} />}
