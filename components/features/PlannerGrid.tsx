@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Calendar as CalendarIcon, ChefHat, ShoppingCart, Copy, Check, MoreVertical, Users } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, ChefHat, ShoppingCart, Copy, Check, MoreVertical, Users, ChevronLeft, ChevronRight, Bookmark } from "lucide-react";
 import DraggableRecipe from "./DraggableRecipe";
-import { Recipe } from "@/types";
+import SavedPlansPanel from "./SavedPlansPanel";
+import { Recipe, MealPlan } from "@/types";
 import RecipeIngestor from "./RecipeIngestor";
 import { cn } from "@/lib/utils";
 import { generateShoppingList, generateOcadoSearchString, ShoppingItem } from "@/lib/logic/shopping-list";
@@ -56,21 +57,65 @@ const MOCK_RECIPES: Recipe[] = [
     },
 ];
 
-import { useRecipes, useMealPlan } from "@/lib/db-hooks";
+import { useRecipes, useMealPlan, useSavedPlans } from "@/lib/db-hooks";
 
 // Mock Data - Keep for initial empty state if needed, but we'll use DB
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MEALS = ["Lunch", "Dinner"];
 
+function getMonday(d: Date): Date {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    date.setDate(diff);
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
+function formatWeekStartDate(d: Date): string {
+    return d.toISOString().slice(0, 10);
+}
+
+function formatWeekRange(startDate: Date): string {
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + 6);
+    const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    return `${startDate.toLocaleDateString("en-GB", opts)} – ${end.toLocaleDateString("en-GB", opts)}`;
+}
+
 export default function PlannerGrid() {
     const { recipes, addRecipe, updateRecipe, loading: recipesLoading } = useRecipes();
-    // For now, we'll hardcode one week. In a real app, we'd have a week picker.
-    const currentWeekStart = "2026-02-09";
+
+    // Week navigation
+    const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+    const currentWeekStart = formatWeekStartDate(weekStart);
     const { plan, updatePlan, loading: planLoading } = useMealPlan(currentWeekStart);
+    const { savedPlans, loading: savedPlansLoading, savePlan, deleteSavedPlan } = useSavedPlans();
+
+    const goToPrevWeek = useCallback(() => {
+        setWeekStart(prev => {
+            const d = new Date(prev);
+            d.setDate(d.getDate() - 7);
+            return d;
+        });
+    }, []);
+
+    const goToNextWeek = useCallback(() => {
+        setWeekStart(prev => {
+            const d = new Date(prev);
+            d.setDate(d.getDate() + 7);
+            return d;
+        });
+    }, []);
+
+    const goToThisWeek = useCallback(() => {
+        setWeekStart(getMonday(new Date()));
+    }, []);
 
     const [activeRecipe, setActiveRecipe] = useState<Recipe | null>(null);
     const [showShoppingList, setShowShoppingList] = useState(false);
     const [showAddRecipe, setShowAddRecipe] = useState(false);
+    const [showSavedPlans, setShowSavedPlans] = useState(false);
     const [copied, setCopied] = useState(false);
     const [sidebarCategory, setSidebarCategory] = useState<string>("Mains");
 
@@ -153,6 +198,15 @@ export default function PlannerGrid() {
     const shoppingList = useMemo(() => generateShoppingList(planner), [planner]);
 
     const loading = recipesLoading || planLoading;
+
+    const handleSavePlan = async (name: string) => {
+        if (!plan?.days) return;
+        await savePlan(name, plan.days);
+    };
+
+    const handleLoadPlan = async (days: MealPlan["days"]) => {
+        await updatePlan(days);
+    };
 
     if (loading) {
         return (
@@ -294,18 +348,52 @@ export default function PlannerGrid() {
             {/* Main Grid */}
             <div className="flex-1 flex flex-col gap-6 min-w-0">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-zinc-800">
-                        <CalendarIcon className="w-5 h-5" />
-                        <h2 className="font-serif font-medium text-lg">Weekly Plan</h2>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={goToPrevWeek}
+                            className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-500 hover:text-zinc-800"
+                            title="Previous week"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <button
+                            onClick={goToThisWeek}
+                            className="flex items-center gap-2 text-zinc-800 hover:text-zinc-600 transition-colors"
+                            title="Jump to this week"
+                        >
+                            <CalendarIcon className="w-5 h-5" />
+                            <h2 className="font-serif font-medium text-lg whitespace-nowrap">
+                                {formatWeekRange(weekStart)}
+                            </h2>
+                        </button>
+
+                        <button
+                            onClick={goToNextWeek}
+                            className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-500 hover:text-zinc-800"
+                            title="Next week"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
                     </div>
 
-                    <button
-                        onClick={() => setShowShoppingList(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors shadow-sm"
-                    >
-                        <ShoppingCart size={16} />
-                        Generate List
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowSavedPlans(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-zinc-100 text-zinc-700 rounded-lg hover:bg-zinc-200 transition-colors"
+                        >
+                            <Bookmark size={16} />
+                            <span className="hidden sm:inline">Saved Plans</span>
+                        </button>
+
+                        <button
+                            onClick={() => setShowShoppingList(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors shadow-sm"
+                        >
+                            <ShoppingCart size={16} />
+                            Generate List
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-7 gap-4 flex-1 h-full min-h-0 overflow-y-auto pb-4">
@@ -479,6 +567,21 @@ export default function PlannerGrid() {
                             </div>
                         </motion.div>
                     </>
+                )}
+            </AnimatePresence>
+
+            {/* Saved Plans Panel */}
+            <AnimatePresence>
+                {showSavedPlans && (
+                    <SavedPlansPanel
+                        savedPlans={savedPlans}
+                        loading={savedPlansLoading}
+                        currentDays={plan?.days}
+                        onSave={handleSavePlan}
+                        onLoad={handleLoadPlan}
+                        onDelete={deleteSavedPlan}
+                        onClose={() => setShowSavedPlans(false)}
+                    />
                 )}
             </AnimatePresence>
         </div>

@@ -7,10 +7,12 @@ import {
     addDoc,
     doc,
     setDoc,
-    serverTimestamp
+    deleteDoc,
+    serverTimestamp,
+    orderBy
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
-import { Recipe, MealPlan } from "@/types";
+import { Recipe, MealPlan, SavedMealPlan } from "@/types";
 import { useAuth } from "@/components/shared/AuthProvider";
 
 export function useRecipes(includeGlobal: boolean = false) {
@@ -119,4 +121,60 @@ export function useMealPlan(weekStartDate: string) {
     };
 
     return { plan, loading, updatePlan };
+}
+
+export function useSavedPlans() {
+    const { user } = useAuth();
+    const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        const q = query(
+            collection(db, "saved_meal_plans"),
+            orderBy("createdAt", "desc")
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const plans = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as SavedMealPlan[];
+            setSavedPlans(plans);
+            setLoading(false);
+        }, (err) => {
+            console.error("Firestore SavedPlans Error:", err);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user?.uid]);
+
+    const savePlan = async (name: string, days: MealPlan["days"]) => {
+        if (!user) throw new Error("Not authenticated");
+        console.log("💾 Saving meal plan template:", name);
+
+        const docRef = await addDoc(collection(db, "saved_meal_plans"), {
+            name,
+            days,
+            createdBy: user.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+        console.log("✅ Saved plan template with ID:", docRef.id);
+        return docRef;
+    };
+
+    const deleteSavedPlan = async (id: string) => {
+        if (!user) throw new Error("Not authenticated");
+        console.log("🗑️ Deleting saved plan:", id);
+        await deleteDoc(doc(db, "saved_meal_plans", id));
+        console.log("✅ Deleted saved plan:", id);
+    };
+
+    return { savedPlans, loading, savePlan, deleteSavedPlan };
 }

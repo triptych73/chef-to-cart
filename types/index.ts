@@ -39,6 +39,15 @@ export interface MealPlan {
     updatedAt?: any;
 }
 
+export interface SavedMealPlan {
+    id: string;
+    name: string;
+    days: MealPlan["days"];
+    createdBy: string;
+    createdAt?: any;
+    updatedAt?: any;
+}
+
 export interface PantryItem {
     id: string;
     name: string;
